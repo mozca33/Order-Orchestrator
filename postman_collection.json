@@ -1,0 +1,1062 @@
+{
+  "info": {
+    "name": "Order Orchestrator",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000" },
+    { "key": "order_id", "value": "" },
+    { "key": "idem_uid", "value": "" },
+    { "key": "queue_dashboard_secret", "value": "Super1Strong2And3Unique4Secret5Value6!" }
+  ],
+  "item": [
+    {
+      "name": "1. Webhook — Receber Pedido",
+      "item": [
+        {
+          "name": "✅ Pedido válido em USD",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const uid = 'usd-' + Date.now();",
+                  "pm.variables.set('uid', uid);",
+                  "pm.collectionVariables.set('idem_uid', uid);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "pm.test('retorna accepted com order_id UUID', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql('accepted');",
+                  "  pm.expect(body.order_id).to.match(/^[0-9a-f-]{36}$/);",
+                  "  pm.collectionVariables.set('order_id', body.order_id);",
+                  "});",
+                  "pm.test('resposta tem X-Request-ID', () => {",
+                  "  pm.expect(pm.response.headers.get('x-request-id')).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{uid}}\",\n  \"customer\": { \"email\": \"ana@example.com\", \"name\": \"Ana\" },\n  \"items\": [{ \"sku\": \"ABC123\", \"qty\": 2, \"unit_price\": 59.9 }],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "✅ Pedido válido em BRL",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('uid', 'brl-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "pm.test('retorna accepted', () => pm.expect(pm.response.json().status).to.eql('accepted'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{uid}}\",\n  \"customer\": { \"email\": \"joao@example.com\", \"name\": \"João\" },\n  \"items\": [{ \"sku\": \"XYZ999\", \"qty\": 1, \"unit_price\": 299.9 }],\n  \"currency\": \"BRL\",\n  \"idempotency_key\": \"{{uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "✅ Pedido válido em EUR",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('uid', 'eur-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "pm.test('retorna accepted', () => pm.expect(pm.response.json().status).to.eql('accepted'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{uid}}\",\n  \"customer\": { \"email\": \"maria@example.com\", \"name\": \"Maria\" },\n  \"items\": [{ \"sku\": \"EUR001\", \"qty\": 3, \"unit_price\": 100.0 }],\n  \"currency\": \"EUR\",\n  \"idempotency_key\": \"{{uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "✅ Moeda em minúsculo (deve normalizar para USD)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('uid', 'lower-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "pm.test('retorna accepted', () => pm.expect(pm.response.json().status).to.eql('accepted'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{uid}}\",\n  \"customer\": { \"email\": \"test@example.com\", \"name\": \"Test\" },\n  \"items\": [{ \"sku\": \"SKU001\", \"qty\": 1, \"unit_price\": 50.0 }],\n  \"currency\": \"usd\",\n  \"idempotency_key\": \"{{uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "✅ Pedido com múltiplos itens",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('uid', 'multi-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "pm.test('retorna accepted', () => pm.expect(pm.response.json().status).to.eql('accepted'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{uid}}\",\n  \"customer\": { \"email\": \"multi@example.com\", \"name\": \"Multi\" },\n  \"items\": [\n    { \"sku\": \"SKU-A\", \"qty\": 2, \"unit_price\": 10.0 },\n    { \"sku\": \"SKU-B\", \"qty\": 1, \"unit_price\": 50.0 },\n    { \"sku\": \"SKU-C\", \"qty\": 5, \"unit_price\": 5.5 }\n  ],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "✅ X-Request-ID personalizado é ecoado na resposta",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('uid', 'corr-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "pm.test('X-Request-ID ecoado corretamente', () => {",
+                  "  pm.expect(pm.response.headers.get('x-request-id')).to.eql('my-custom-trace-id-123');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-request-id", "value": "my-custom-trace-id-123" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{uid}}\",\n  \"customer\": { \"email\": \"trace@example.com\", \"name\": \"Trace\" },\n  \"items\": [{ \"sku\": \"SKU001\", \"qty\": 1, \"unit_price\": 10.0 }],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "🔁 Idempotência — mesmo pedido (deve retornar duplicate)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.variables.set('uid', pm.collectionVariables.get('idem_uid'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "pm.test('retorna duplicate com order_id e message', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql('duplicate');",
+                  "  pm.expect(body.order_id).to.be.a('string');",
+                  "  pm.expect(body.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{uid}}\",\n  \"customer\": { \"email\": \"ana@example.com\", \"name\": \"Ana\" },\n  \"items\": [{ \"sku\": \"ABC123\", \"qty\": 2, \"unit_price\": 59.9 }],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "❌ Sem campo currency",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('err_uid', 'err-no-cur-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('erro menciona currency', () => {",
+                  "  pm.expect(JSON.stringify(pm.response.json().error)).to.include('currency');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{err_uid}}\",\n  \"customer\": { \"email\": \"test@example.com\", \"name\": \"Test\" },\n  \"items\": [{ \"sku\": \"SKU001\", \"qty\": 1, \"unit_price\": 50.0 }],\n  \"idempotency_key\": \"{{err_uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "❌ Currency com números (ex: 111)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('err_uid', 'err-cur-num-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('erro menciona currency', () => {",
+                  "  pm.expect(JSON.stringify(pm.response.json().error)).to.include('currency');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{err_uid}}\",\n  \"customer\": { \"email\": \"test@example.com\", \"name\": \"Test\" },\n  \"items\": [{ \"sku\": \"SKU001\", \"qty\": 1, \"unit_price\": 50.0 }],\n  \"currency\": \"111\",\n  \"idempotency_key\": \"{{err_uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "❌ Currency inexistente (ex: AAA)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('err_uid', 'err-cur-inv-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('erro menciona currency', () => {",
+                  "  pm.expect(JSON.stringify(pm.response.json().error)).to.include('currency');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{err_uid}}\",\n  \"customer\": { \"email\": \"test@example.com\", \"name\": \"Test\" },\n  \"items\": [{ \"sku\": \"SKU001\", \"qty\": 1, \"unit_price\": 50.0 }],\n  \"currency\": \"AAA\",\n  \"idempotency_key\": \"{{err_uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "❌ Email inválido",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('err_uid', 'err-email-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('erro menciona email', () => {",
+                  "  pm.expect(JSON.stringify(pm.response.json().error)).to.include('email');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{err_uid}}\",\n  \"customer\": { \"email\": \"not-an-email\", \"name\": \"Test\" },\n  \"items\": [{ \"sku\": \"SKU001\", \"qty\": 1, \"unit_price\": 50.0 }],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{err_uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "❌ Lista de itens vazia",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('err_uid', 'err-empty-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('campo error presente', () => pm.expect(pm.response.json().error).to.exist);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{err_uid}}\",\n  \"customer\": { \"email\": \"test@example.com\", \"name\": \"Test\" },\n  \"items\": [],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{err_uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "❌ Quantidade do item menor que 1",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('err_uid', 'err-qty-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": { "exec": ["pm.test('status 400', () => pm.response.to.have.status(400));"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{err_uid}}\",\n  \"customer\": { \"email\": \"test@example.com\", \"name\": \"Test\" },\n  \"items\": [{ \"sku\": \"SKU001\", \"qty\": 0, \"unit_price\": 50.0 }],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{err_uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "❌ Preço unitário negativo",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('err_uid', 'err-price-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": { "exec": ["pm.test('status 400', () => pm.response.to.have.status(400));"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{err_uid}}\",\n  \"customer\": { \"email\": \"test@example.com\", \"name\": \"Test\" },\n  \"items\": [{ \"sku\": \"SKU001\", \"qty\": 1, \"unit_price\": -10.0 }],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{err_uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "❌ Body completamente vazio",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "exec": ["pm.test('status 400', () => pm.response.to.have.status(400));"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" }
+          }
+        },
+        {
+          "name": "❌ Campo desconhecido no body (whitelist)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('err_uid', 'err-wl-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": { "exec": ["pm.test('status 400', () => pm.response.to.have.status(400));"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{err_uid}}\",\n  \"customer\": { \"email\": \"test@example.com\", \"name\": \"Test\" },\n  \"items\": [{ \"sku\": \"SKU001\", \"qty\": 1, \"unit_price\": 50.0 }],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{err_uid}}\",\n  \"campo_invalido\": \"não deveria estar aqui\"\n}"
+            }
+          }
+        },
+        {
+          "name": "🔒 [Segurança] SKU excede MaxLength (101 chars)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.variables.set('err_uid', 'err-sku-' + Date.now());",
+                  "pm.variables.set('long_sku', 'A'.repeat(101));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": { "exec": ["pm.test('status 400', () => pm.response.to.have.status(400));"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{err_uid}}\",\n  \"customer\": { \"email\": \"test@example.com\", \"name\": \"Test\" },\n  \"items\": [{ \"sku\": \"{{long_sku}}\", \"qty\": 1, \"unit_price\": 10.0 }],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{err_uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "🔒 [Segurança] Nome do cliente excede MaxLength (201 chars)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.variables.set('err_uid', 'err-name-' + Date.now());",
+                  "pm.variables.set('long_name', 'A'.repeat(201));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": { "exec": ["pm.test('status 400', () => pm.response.to.have.status(400));"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{err_uid}}\",\n  \"customer\": { \"email\": \"test@example.com\", \"name\": \"{{long_name}}\" },\n  \"items\": [{ \"sku\": \"SKU001\", \"qty\": 1, \"unit_price\": 10.0 }],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{err_uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "🔒 [Segurança] X-Request-ID com caracteres de injeção deve ser ignorado",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('uid', 'inject-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "pm.test('X-Request-ID malicioso foi substituído por UUID gerado', () => {",
+                  "  const id = pm.response.headers.get('x-request-id');",
+                  "  pm.expect(id).to.not.include('\\n');",
+                  "  pm.expect(id).to.not.include('<script>');",
+                  "  pm.expect(id).to.match(/^[a-zA-Z0-9\\-]{1,128}$/);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-request-id", "value": "<script>alert(1)</script>\ninjected-log-line" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{uid}}\",\n  \"customer\": { \"email\": \"test@example.com\", \"name\": \"Test\" },\n  \"items\": [{ \"sku\": \"SKU001\", \"qty\": 1, \"unit_price\": 10.0 }],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "🔒 [Segurança] Resposta tem headers de segurança (Helmet)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.variables.set('uid', 'helmet-' + Date.now());"] }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "pm.test('X-Content-Type-Options presente', () => {",
+                  "  pm.expect(pm.response.headers.get('x-content-type-options')).to.eql('nosniff');",
+                  "});",
+                  "pm.test('X-Frame-Options presente', () => {",
+                  "  pm.expect(pm.response.headers.get('x-frame-options')).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{uid}}\",\n  \"customer\": { \"email\": \"helmet@example.com\", \"name\": \"Helmet\" },\n  \"items\": [{ \"sku\": \"SKU001\", \"qty\": 1, \"unit_price\": 10.0 }],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{uid}}\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Pedidos — Consulta",
+      "item": [
+        {
+          "name": "✅ Listar todos os pedidos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('retorna estrutura de paginação completa', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data).to.be.an('array');",
+                  "  pm.expect(body.total).to.be.a('number');",
+                  "  pm.expect(body.page).to.eql(1);",
+                  "  pm.expect(body.limit).to.eql(20);",
+                  "});",
+                  "pm.test('cada pedido tem campos obrigatórios em snake_case', () => {",
+                  "  pm.response.json().data.forEach(o => {",
+                  "    pm.expect(o.id).to.be.a('string');",
+                  "    pm.expect(o.order_id).to.be.a('string');",
+                  "    pm.expect(o.status).to.be.a('string');",
+                  "    pm.expect(o.currency).to.be.a('string');",
+                  "    pm.expect(o.total_amount).to.be.a('number');",
+                  "    pm.expect(o.customer).to.have.property('email');",
+                  "    pm.expect(o.items).to.be.an('array');",
+                  "    pm.expect(o.created_at).to.be.a('string');",
+                  "  });",
+                  "});",
+                  "pm.test('idempotency_key não vaza na resposta', () => {",
+                  "  pm.response.json().data.forEach(o => {",
+                  "    pm.expect(o).to.not.have.property('idempotency_key');",
+                  "    pm.expect(o).to.not.have.property('idempotencyKey');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{base_url}}/orders" }
+        },
+        {
+          "name": "✅ Paginação — página 2 com limit 5",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('page e limit refletem os parâmetros enviados', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.page).to.eql(2);",
+                  "  pm.expect(body.limit).to.eql(5);",
+                  "  pm.expect(body.data.length).to.be.at.most(5);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/orders?page=2&limit=5",
+              "query": [
+                { "key": "page", "value": "2" },
+                { "key": "limit", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "✅ Filtrar por status RECEIVED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('todos os itens têm status RECEIVED', () => {",
+                  "  pm.response.json().data.forEach(o => pm.expect(o.status).to.eql('RECEIVED'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/orders?status=RECEIVED", "query": [{ "key": "status", "value": "RECEIVED" }] }
+          }
+        },
+        {
+          "name": "✅ Filtrar por status PROCESSING",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('todos os itens têm status PROCESSING', () => {",
+                  "  pm.response.json().data.forEach(o => pm.expect(o.status).to.eql('PROCESSING'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/orders?status=PROCESSING", "query": [{ "key": "status", "value": "PROCESSING" }] }
+          }
+        },
+        {
+          "name": "✅ Filtrar por status ENRICHED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('todos os itens têm status ENRICHED', () => {",
+                  "  pm.response.json().data.forEach(o => pm.expect(o.status).to.eql('ENRICHED'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/orders?status=ENRICHED", "query": [{ "key": "status", "value": "ENRICHED" }] }
+          }
+        },
+        {
+          "name": "✅ Filtrar por status FAILED_ENRICHMENT",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('todos os itens têm status FAILED_ENRICHMENT', () => {",
+                  "  pm.response.json().data.forEach(o => pm.expect(o.status).to.eql('FAILED_ENRICHMENT'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/orders?status=FAILED_ENRICHMENT", "query": [{ "key": "status", "value": "FAILED_ENRICHMENT" }] }
+          }
+        },
+        {
+          "name": "✅ Buscar pedido por ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('pedido tem todos os campos esperados em snake_case', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.id).to.match(/^[0-9a-f-]{36}$/);",
+                  "  pm.expect(body.order_id).to.be.a('string');",
+                  "  pm.expect(body.status).to.be.a('string');",
+                  "  pm.expect(body.currency).to.be.a('string');",
+                  "  pm.expect(body.total_amount).to.be.a('number');",
+                  "  pm.expect(body.customer).to.have.property('email');",
+                  "  pm.expect(body.items).to.be.an('array').with.length.above(0);",
+                  "  pm.expect(body.created_at).to.be.a('string');",
+                  "  pm.expect(body.updated_at).to.be.a('string');",
+                  "});",
+                  "pm.test('idempotency_key não vaza na resposta', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.not.have.property('idempotency_key');",
+                  "  pm.expect(body).to.not.have.property('idempotencyKey');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{base_url}}/orders/{{order_id}}" }
+        },
+        {
+          "name": "✅ Resposta tem X-Request-ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('X-Request-ID presente na resposta GET', () => {",
+                  "  pm.expect(pm.response.headers.get('x-request-id')).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{base_url}}/orders" }
+        },
+        {
+          "name": "❌ Buscar pedido com ID inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('resposta tem campo error', () => {",
+                  "  pm.expect(pm.response.json().error).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{base_url}}/orders/00000000-0000-0000-0000-000000000000" }
+        },
+        {
+          "name": "❌ Buscar pedido com ID inválido (não é UUID)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('resposta tem campo error', () => {",
+                  "  pm.expect(pm.response.json().error).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{base_url}}/orders/id-invalido" }
+        }
+      ]
+    },
+    {
+      "name": "3. Enriquecimento — Verificar resultado",
+      "item": [
+        {
+          "name": "⏳ Aguardar e verificar pedido ENRICHED (rodar ~3s após o webhook)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('pedido foi enriquecido (status ENRICHED)', () => {",
+                  "  pm.expect(pm.response.json().status).to.eql('ENRICHED');",
+                  "});",
+                  "pm.test('exchange_data tem estrutura correta', () => {",
+                  "  const ex = pm.response.json().exchange_data;",
+                  "  pm.expect(ex).to.be.an('object').and.not.null;",
+                  "  pm.expect(ex.base_currency).to.be.a('string');",
+                  "  pm.expect(ex.target_currency).to.be.a('string');",
+                  "  pm.expect(ex.exchange_rate).to.be.a('number').and.above(0);",
+                  "  pm.expect(ex.converted_total).to.be.a('number').and.above(0);",
+                  "  pm.expect(ex.source).to.be.a('string');",
+                  "});",
+                  "pm.test('failure_reason é null quando enriquecido com sucesso', () => {",
+                  "  pm.expect(pm.response.json().failure_reason).to.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{base_url}}/orders/{{order_id}}" }
+        },
+        {
+          "name": "✅ Pedido FAILED_ENRICHMENT expõe failure_reason",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('retorna lista paginada com pelo menos um pedido FAILED_ENRICHMENT', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data).to.be.an('array');",
+                  "  pm.expect(body.data.length).to.be.above(0, 'Nenhum pedido FAILED_ENRICHMENT encontrado — execute o webhook com exchange indisponível primeiro');",
+                  "});",
+                  "pm.test('failure_reason está preenchido e exchange_data é null no pedido FAILED_ENRICHMENT', () => {",
+                  "  const order = pm.response.json().data[0];",
+                  "  pm.expect(order.status).to.eql('FAILED_ENRICHMENT');",
+                  "  pm.expect(order.failure_reason).to.be.a('string').and.not.empty;",
+                  "  pm.expect(order.exchange_data).to.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/orders?status=FAILED_ENRICHMENT&limit=1", "query": [{ "key": "status", "value": "FAILED_ENRICHMENT" }, { "key": "limit", "value": "1" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Fila — Métricas",
+      "item": [
+        {
+          "name": "✅ Métricas da fila",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('tem main_queue e dead_letter_queue com campos obrigatórios', () => {",
+                  "  const body = pm.response.json();",
+                  "  ['main_queue', 'dead_letter_queue'].forEach(key => {",
+                  "    pm.expect(body[key]).to.exist;",
+                  "    pm.expect(body[key].name).to.be.a('string');",
+                  "    pm.expect(body[key].waiting).to.be.a('number');",
+                  "    pm.expect(body[key].active).to.be.a('number');",
+                  "    pm.expect(body[key].failed).to.be.a('number');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{base_url}}/queue/metrics" }
+        }
+      ]
+    },
+    {
+      "name": "6. Carga — Stress da Fila",
+      "description": "Run via Collection Runner: select this folder, set 50-100 iterations, delay 0ms. Watch the queue fill up at GET /queue/metrics and drain as workers process jobs.",
+      "item": [
+        {
+          "name": "🔥 Pedido de carga (rodar via Collection Runner — 50-100x, delay 0ms)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Each iteration generates a unique order so no idempotency collision",
+                  "const uid = 'load-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);",
+                  "pm.variables.set('load_uid', uid);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));",
+                  "pm.test('pedido aceito ou duplicado', () => {",
+                  "  pm.expect(['accepted', 'duplicate']).to.include(pm.response.json().status);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/webhooks/orders",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{load_uid}}\",\n  \"customer\": { \"email\": \"load@test.com\", \"name\": \"Load Test\" },\n  \"items\": [\n    { \"sku\": \"SKU-LOAD-A\", \"qty\": 1, \"unit_price\": 99.9 },\n    { \"sku\": \"SKU-LOAD-B\", \"qty\": 2, \"unit_price\": 49.5 }\n  ],\n  \"currency\": \"USD\",\n  \"idempotency_key\": \"{{load_uid}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "📊 Métricas da fila durante a carga (chamar enquanto os pedidos chegam)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('exibe profundidade da fila em tempo real', () => {",
+                  "  const body = pm.response.json();",
+                  "  const mq = body.main_queue;",
+                  "  const dlq = body.dead_letter_queue;",
+                  "  console.log('=== QUEUE SNAPSHOT ===');",
+                  "  console.log('main_queue  → waiting:', mq.waiting, '| active:', mq.active, '| completed:', mq.completed, '| failed:', mq.failed);",
+                  "  console.log('dead_letter → waiting:', dlq.waiting, '| failed:', dlq.failed);",
+                  "  pm.expect(mq.waiting).to.be.a('number');",
+                  "  pm.expect(mq.active).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{base_url}}/queue/metrics" }
+        },
+        {
+          "name": "📊 Métricas da fila após a carga (confirmar que a fila drenou)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('fila principal drenada (waiting = 0)', () => {",
+                  "  const mq = pm.response.json().main_queue;",
+                  "  console.log('waiting after drain:', mq.waiting, '| completed:', mq.completed);",
+                  "  pm.expect(mq.waiting).to.eql(0);",
+                  "});",
+                  "pm.test('nenhum job ativo pendente', () => {",
+                  "  pm.expect(pm.response.json().main_queue.active).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{base_url}}/queue/metrics" }
+        },
+        {
+          "name": "📋 Listar pedidos após carga (confirmar que foram persistidos)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('total de pedidos aumentou', () => {",
+                  "  const body = pm.response.json();",
+                  "  console.log('Total de pedidos no banco:', body.total);",
+                  "  pm.expect(body.total).to.be.above(0);",
+                  "});",
+                  "pm.test('estrutura de paginação correta', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data).to.be.an('array');",
+                  "  pm.expect(body.page).to.eql(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/orders?limit=100", "query": [{ "key": "limit", "value": "100" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Segurança — Bull Board",
+      "item": [
+        {
+          "name": "🔒 /queues sem secret deve retornar 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('acesso sem secret retorna 401 ou 403 (nunca 200)', () => {",
+                  "  pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{base_url}}/queues" }
+        },
+        {
+          "name": "🔒 /queues com secret correto deve permitir acesso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('com secret válido retorna 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/queues",
+            "header": [
+              { "key": "x-dashboard-secret", "value": "{{queue_dashboard_secret}}" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
