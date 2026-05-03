@@ -52,7 +52,7 @@ describe('OrdersService', () => {
       idempotency_key: 'idem-key-1',
     };
 
-    it('cria e persiste novo pedido', async () => {
+    it('cria e persiste novo pedido com status RECEIVED', async () => {
       mockRepo.create.mockReturnValue(mockOrder);
       mockRepo.save.mockResolvedValue(mockOrder);
 
@@ -87,7 +87,7 @@ describe('OrdersService', () => {
       });
     });
 
-    it('rounds totalAmount to 4 decimal places', async () => {
+    it('arredonda totalAmount para 4 casas decimais', async () => {
       const dtoWithFraction: CreateOrderDto = {
         ...dto,
         items: [{ sku: 'X', qty: 3, unit_price: 0.1 }],
@@ -106,15 +106,38 @@ describe('OrdersService', () => {
   describe('findOne', () => {
     it('retorna DTO do pedido quando encontrado', async () => {
       mockRepo.findOne.mockResolvedValue(mockOrder);
+
       const result = await service.findOne('uuid-1');
+
       expect(result.id).toBe(mockOrder.id);
       expect(result.order_id).toBe(mockOrder.externalId);
+    });
+
+    it('mapeia exchangeError para failure_reason no DTO', async () => {
+      const failedOrder: Order = {
+        ...mockOrder,
+        status: OrderStatus.FAILED_ENRICHMENT,
+        exchangeError: 'Exchange API indisponível',
+      };
+      mockRepo.findOne.mockResolvedValue(failedOrder);
+
+      const result = await service.findOne('uuid-1');
+
+      expect(result.failure_reason).toBe('Exchange API indisponível');
+    });
+
+    it('não expõe idempotencyKey nem exchangeError diretamente', async () => {
+      mockRepo.findOne.mockResolvedValue(mockOrder);
+
+      const result = await service.findOne('uuid-1');
+
       expect(result).not.toHaveProperty('idempotencyKey');
       expect(result).not.toHaveProperty('exchangeError');
     });
 
-    it('lança NotFoundException quando não encontrado', async () => {
+    it('lança NotFoundException quando pedido não existe', async () => {
       mockRepo.findOne.mockResolvedValue(null);
+
       await expect(service.findOne('id-inexistente')).rejects.toThrow(
         NotFoundException,
       );
@@ -131,12 +154,49 @@ describe('OrdersService', () => {
       expect(result.page).toBe(1);
       expect(result.limit).toBe(20);
       expect(result.data[0].order_id).toBe(mockOrder.externalId);
+    });
+
+    it('filtra por status quando fornecido', async () => {
+      mockRepo.findAndCount.mockResolvedValue([[mockOrder], 1]);
+
+      await service.findAll(OrderStatus.RECEIVED, 1, 20);
+
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { status: OrderStatus.RECEIVED } }),
+      );
+    });
+
+    it('não aplica filtro de status quando undefined', async () => {
+      mockRepo.findAndCount.mockResolvedValue([[mockOrder], 1]);
+
+      await service.findAll(undefined, 1, 20);
+
+      expect(mockRepo.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
+
+    it('não expõe idempotencyKey na listagem', async () => {
+      mockRepo.findAndCount.mockResolvedValue([[mockOrder], 1]);
+
+      const result = await service.findAll(undefined, 1, 20);
+
       expect(result.data[0]).not.toHaveProperty('idempotencyKey');
     });
   });
 
   describe('updateStatus', () => {
-    it('chama repo.update com os argumentos corretos', async () => {
+    it('atualiza somente status quando sem dados adicionais', async () => {
+      mockRepo.update.mockResolvedValue({});
+
+      await service.updateStatus('uuid-1', OrderStatus.PROCESSING);
+
+      expect(mockRepo.update).toHaveBeenCalledWith('uuid-1', {
+        status: OrderStatus.PROCESSING,
+      });
+    });
+
+    it('inclui exchangeData ao atualizar para ENRICHED', async () => {
       mockRepo.update.mockResolvedValue({});
       const exchangeData = {
         base_currency: 'USD',
@@ -151,6 +211,22 @@ describe('OrdersService', () => {
       expect(mockRepo.update).toHaveBeenCalledWith('uuid-1', {
         status: OrderStatus.ENRICHED,
         exchangeData,
+      });
+    });
+
+    it('inclui exchangeError ao atualizar para FAILED_ENRICHMENT', async () => {
+      mockRepo.update.mockResolvedValue({});
+
+      await service.updateStatus(
+        'uuid-1',
+        OrderStatus.FAILED_ENRICHMENT,
+        undefined,
+        'API timeout após 3 tentativas',
+      );
+
+      expect(mockRepo.update).toHaveBeenCalledWith('uuid-1', {
+        status: OrderStatus.FAILED_ENRICHMENT,
+        exchangeError: 'API timeout após 3 tentativas',
       });
     });
   });

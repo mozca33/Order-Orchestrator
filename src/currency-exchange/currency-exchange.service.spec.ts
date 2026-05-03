@@ -30,7 +30,7 @@ describe('CurrencyExchangeService', () => {
   });
 
   describe('fetchRate — AwesomeAPI (caminho principal)', () => {
-    it('retorna cotação com USD→BRL via AwesomeAPI', async () => {
+    it('converte USD→BRL via AwesomeAPI', async () => {
       mockHttp.get.mockReturnValue(
         of(makeAxiosResponse({ USDBRL: { bid: '5.20' } })),
       );
@@ -44,7 +44,7 @@ describe('CurrencyExchangeService', () => {
       expect(result.source).toBe('economia.awesomeapi.com.br');
     });
 
-    it('converte BRL para USD quando moeda base é BRL', async () => {
+    it('converte BRL→USD quando moeda base é BRL', async () => {
       mockHttp.get.mockReturnValue(
         of(makeAxiosResponse({ BRLUSD: { bid: '0.19' } })),
       );
@@ -55,6 +55,19 @@ describe('CurrencyExchangeService', () => {
       expect(result.target_currency).toBe('USD');
       expect(result.exchange_rate).toBe(0.19);
       expect(result.converted_total).toBe(190);
+    });
+
+    it('converte EUR→BRL para moeda não-padrão', async () => {
+      mockHttp.get.mockReturnValue(
+        of(makeAxiosResponse({ EURBRL: { bid: '6.10' } })),
+      );
+
+      const result = await service.fetchRate('EUR', 100);
+
+      expect(result.base_currency).toBe('EUR');
+      expect(result.target_currency).toBe('BRL');
+      expect(result.exchange_rate).toBe(6.1);
+      expect(result.converted_total).toBe(610);
     });
 
     it('arredonda converted_total para 2 casas decimais', async () => {
@@ -132,6 +145,19 @@ describe('CurrencyExchangeService', () => {
 
       expect(first.converted_total).toBe(500);
       expect(second.converted_total).toBe(1000);
+    });
+
+    it('pares diferentes não compartilham cache', async () => {
+      mockHttp.get
+        .mockReturnValueOnce(of(makeAxiosResponse({ USDBRL: { bid: '5.20' } })))
+        .mockReturnValueOnce(
+          of(makeAxiosResponse({ BRLUSD: { bid: '0.19' } })),
+        );
+
+      await service.fetchRate('USD', 100);
+      await service.fetchRate('BRL', 100);
+
+      expect(mockHttp.get).toHaveBeenCalledTimes(2);
     });
   });
 });

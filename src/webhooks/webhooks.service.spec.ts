@@ -38,7 +38,10 @@ describe('WebhooksService', () => {
   };
 
   it('aceita novo pedido, enfileira e retorna accepted', async () => {
-    mockOrders.create.mockResolvedValue({ order: mockOrder, isDuplicate: false });
+    mockOrders.create.mockResolvedValue({
+      order: mockOrder,
+      isDuplicate: false,
+    });
     mockQueue.enqueueExchange.mockResolvedValue(undefined);
 
     const result = await service.receiveOrder(dto);
@@ -52,7 +55,10 @@ describe('WebhooksService', () => {
   });
 
   it('retorna duplicate sem enfileirar quando pedido já existe', async () => {
-    mockOrders.create.mockResolvedValue({ order: mockOrder, isDuplicate: true });
+    mockOrders.create.mockResolvedValue({
+      order: mockOrder,
+      isDuplicate: true,
+    });
 
     const result = await service.receiveOrder(dto);
 
@@ -61,7 +67,10 @@ describe('WebhooksService', () => {
   });
 
   it('marca FAILED_ENRICHMENT e repropaga erro quando fila está indisponível', async () => {
-    mockOrders.create.mockResolvedValue({ order: mockOrder, isDuplicate: false });
+    mockOrders.create.mockResolvedValue({
+      order: mockOrder,
+      isDuplicate: false,
+    });
     mockQueue.enqueueExchange.mockRejectedValue(new Error('Redis down'));
     mockOrders.updateStatus.mockResolvedValue(undefined);
 
