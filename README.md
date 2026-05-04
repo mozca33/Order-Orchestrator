@@ -100,6 +100,8 @@ Disponível em:
 
 Com a API rodando:
 
+**Linux / Mac / Git Bash:**
+
 ```bash
 curl -X POST http://localhost:3000/webhooks/orders \
   -H "Content-Type: application/json" \
@@ -111,6 +113,20 @@ curl -X POST http://localhost:3000/webhooks/orders \
     "idempotency_key": "test-001"
   }'
 ```
+
+**Windows PowerShell:**
+
+  ```powershell
+  $body = @{
+    order_id = "ext-123"
+    customer = @{ email = "ana@example.com"; name = "Ana" }
+    items = @(@{ sku = "ABC123"; qty = 2; unit_price = 59.9 })
+    currency = "USD"
+    idempotency_key = "test-001"
+  } | ConvertTo-Json -Depth 5
+
+  Invoke-RestMethod -Uri http://localhost:3000/webhooks/orders -Method Post -ContentType "application/json" -Body $body
+  ```
 
 Resposta (HTTP 202): `{ "status": "accepted", "order_id": "<uuid>" }`.
 
